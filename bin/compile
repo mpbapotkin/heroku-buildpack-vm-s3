@@ -75,7 +75,7 @@ done
 
 # Read buildpack config from app config vars (if provided) or use defaults
 VM_VERSION=$(cat $ENV_DIR/VM_VERSION 2>/dev/null || echo "1.92.1")
-VM_RETENTION_PERIOD=$(cat $ENV_DIR/VM_RETENTION_PERIOD 2>/dev/null || echo "1m")
+VM_RETENTION_PERIOD=$(cat $ENV_DIR/VM_RETENTION_PERIOD 2>/dev/null || echo "1")
 
 # Store which VM_VERSION we are using in the cache to bust the cache if it changes
 if [ -f $CACHE_DIR/.victoria-metrics/VM_VERSION ]; then
