@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# bin/release <build-dir>
+
+# fail fast
+set -eo pipefail
+
+VM_STORAGE_DATA_PATH=${VM_STORAGE_DATA_PATH:-$HOME/.victoria-metrics/storage}
+VM_RETENTION_PERIOD=${VM_RETENTION_PERIOD:-1m}
+
+cat << EOF
+---
+default_process_types:
+  web: victoria-metrics-prod -storageDataPath=%{VM_STORAGE_DATA_PATH} -httpListenAddr=:%{PORT}
+EOF
