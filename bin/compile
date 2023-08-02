@@ -94,11 +94,10 @@ VM_CACHE_DIR="$CACHE_DIR/victoria-metrics/cache"
 VM_BINARY_DIR="$BUILD_DIR/.victoria-metrics/bin"
 VM_STORAGE_DATA_PATH="$BUILD_DIR/.victoria-metrics/storage"
 
-if [[ $CACHED_VM_VERSION == $VM_VERSION ]] ; then
-  # VM_VERSION has not changed
+if [ -f $VM_CACHE_DIR/victoria-metrics-prod ] && [[ $CACHED_VM_VERSION == $VM_VERSION ]] ; then
   topic "Reusing cached Victoria Metrics binary"
 else
-  topic "Detected VM_VERSION change, flushing cache"
+  topic "No cached Victoria Metrics binary detected"
   rm -rf $VM_CACHE_DIR
   mkdir -p "$VM_CACHE_DIR"
 fi
