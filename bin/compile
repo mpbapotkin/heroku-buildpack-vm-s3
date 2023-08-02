@@ -73,12 +73,9 @@ done
 
 # Victoria Metrics installation
 
-# Read VM_VERSION from app config var (if provided) or use default
-if [ -f "$ENV_DIR/VM_VERSION" ]; then
-  VM_VERSION=$(cat $ENV_DIR/VM_VERSION)
-else
-  VM_VERSION="1.92.1"
-fi
+# Read buildpack config from app config vars (if provided) or use defaults
+VM_VERSION=$(cat $ENV_DIR/VM_VERSION 2>/dev/null || echo "1.92.1")
+VM_RETENTION_PERIOD=$(cat $ENV_DIR/VM_RETENTION_PERIOD 2>/dev/null || echo "1m")
 
 # Store which VM_VERSION we are using in the cache to bust the cache if it changes
 if [ -f $CACHE_DIR/.victoria-metrics/VM_VERSION ]; then
@@ -92,13 +89,13 @@ mkdir -p "$CACHE_DIR/.victoria-metrics"
 echo "$VM_VERSION" > "$CACHE_DIR/.victoria-metrics/VM_VERSION"
 
 VM_CACHE_DIR="$CACHE_DIR/victoria-metrics/cache"
-VM_BINARY_DIR="$BUILD_DIR/.victoria-metrics/bin"
+VM_BIN_DIR="$BUILD_DIR/.victoria-metrics/bin"
 VM_STORAGE_DATA_PATH="$BUILD_DIR/.victoria-metrics/storage"
 
 if [ -f $VM_CACHE_DIR/victoria-metrics-prod ] && [[ $CACHED_VM_VERSION == $VM_VERSION ]] ; then
   topic "Reusing cached Victoria Metrics binary"
 else
-  topic "No cached Victoria Metrics binary detected"
+  topic "No cached Victoria Metrics binary detected or VM_VERSION changed"
   rm -rf $VM_CACHE_DIR
   mkdir -p "$VM_CACHE_DIR"
 fi
@@ -112,14 +109,14 @@ if [[ ! -f $VM_CACHE_DIR/victoria-metrics-prod ]]; then
 fi
 
 topic "Installing Victoria Metrics"
-mkdir -p $VM_BINARY_DIR
-cp $VM_CACHE_DIR/victoria-metrics-prod $VM_BINARY_DIR
-chmod a+x $VM_BINARY_DIR/victoria-metrics-prod
+mkdir -p $VM_BIN_DIR
 mkdir -p $VM_STORAGE_DATA_PATH
+cp $VM_CACHE_DIR/victoria-metrics-prod $VM_BIN_DIR
+chmod a+x $VM_BIN_DIR/victoria-metrics-prod
 
 topic "Writing profile script"
 mkdir -p $BUILD_DIR/.profile.d
-cat <<EOF >$BUILD_DIR/.profile.d/000_vm_s3.sh
+cat <<EOF >$BUILD_DIR/.profile.d/000-vm-s3.sh
 export PATH="\$HOME/.apt/usr/bin:\$HOME/.victoria-metrics/bin:\$PATH"
 export LD_LIBRARY_PATH="\$HOME/.apt/usr/lib/x86_64-linux-gnu:\$HOME/.apt/usr/lib/i386-linux-gnu:\$HOME/.apt/usr/lib:\$LD_LIBRARY_PATH"
 export LIBRARY_PATH="\$HOME/.apt/usr/lib/x86_64-linux-gnu:\$HOME/.apt/usr/lib/i386-linux-gnu:\$HOME/.apt/usr/lib:\$LIBRARY_PATH"
@@ -127,92 +124,23 @@ export INCLUDE_PATH="\$HOME/.apt/usr/include:\$HOME/.apt/usr/include/x86_64-linu
 export CPATH="\$INCLUDE_PATH"
 export CPPPATH="\$INCLUDE_PATH"
 export PKG_CONFIG_PATH="\$HOME/.apt/usr/lib/x86_64-linux-gnu/pkgconfig:\$HOME/.apt/usr/lib/i386-linux-gnu/pkgconfig:\$HOME/.apt/usr/lib/pkgconfig:\$PKG_CONFIG_PATH"
+export VM_VERSION=\${VM_VERSION:-$VM_VERSION}
+export VM_RETENTION_PERIOD=\${VM_RETENTION_PERIOD:-$VM_RETENTION_PERIOD}
+export VM_STORAGE_DATA_PATH=\$HOME/.victoria_metrics/storage}
 EOF
 
-export PATH="$BUILD_DIR/.apt/usr/bin:$VM_BINARY_DIR:$PATH"
+export PATH="$BUILD_DIR/.apt/usr/bin:$VM_BIN_DIR:$PATH"
 export LD_LIBRARY_PATH="$BUILD_DIR/.apt/usr/lib/x86_64-linux-gnu:$BUILD_DIR/.apt/usr/lib/i386-linux-gnu:$BUILD_DIR/.apt/usr/lib:$LD_LIBRARY_PATH"
 export LIBRARY_PATH="$BUILD_DIR/.apt/usr/lib/x86_64-linux-gnu:$BUILD_DIR/.apt/usr/lib/i386-linux-gnu:$BUILD_DIR/.apt/usr/lib:$LIBRARY_PATH"
 export INCLUDE_PATH="$BUILD_DIR/.apt/usr/include:$BUILD_DIR/.apt/usr/include/x86_64-linux-gnu:$INCLUDE_PATH"
 export CPATH="$INCLUDE_PATH"
 export CPPPATH="$INCLUDE_PATH"
 export PKG_CONFIG_PATH="$BUILD_DIR/.apt/usr/lib/x86_64-linux-gnu/pkgconfig:$BUILD_DIR/.apt/usr/lib/i386-linux-gnu/pkgconfig:$BUILD_DIR/.apt/usr/lib/pkgconfig:$PKG_CONFIG_PATH"
+export VM_VERSION=$VM_VERSION
+export VM_RETENTION_PERIOD=$VM_RETENTION_PERIOD
+export VM_STORAGE_DATA_PATH=$VM_STORAGE_DATA_PATH
 
+# TODO: mount bucket on VM_STORAGE_DATA_PATH
 
-#give environment to later buildpacks
-export | grep -E -e ' (PATH|LD_LIBRARY_PATH|LIBRARY_PATH|INCLUDE_PATH|CPATH|CPPPATH|PKG_CONFIG_PATH)='  > "$LP_DIR/export"
-
-# mkdir -p $BUILD_DIR/.profile.d
-
-# if [[ ! -f ${BUILD_DIR}/.profile.d/accurate-scaler.sh ]]; then
-#   arrow "Installing startup script ..."
-#   cat > ${BUILD_DIR}/.profile.d/accurate-scaler.sh <<-SH
-# function proctype() {
-#   for monitored_proctype in \$monitored_proctypes; do
-#     if [[ \$DYNO =~ ^\$monitored_proctype.* ]]; then
-#       echo \$monitored_proctype
-#     fi
-#   done
-# }
-
-# export PATH=\$PATH:\$HOME/bin
-
-# # Check if buildpack was correctly installed or exit with failure
-# if [[ ! -x \$HOME/bin/otelcol-contrib ]]; then
-#   echo "OpenTelemetry Collector Contrib not found. Buildpack failed to install correctly."
-#   exit 1
-# fi
-
-# monitored_proctypes=\${ACCURATE_SCALER_MONITORED_PROCTYPES:-web worker}
-# dyno_proctype=\$(proctype)
-
-# # Check if dyno is running a monitored process type or notify and exit without failing
-# if [[ \$dyno_proctype == "" ]]; then
-#   echo "AccurateScaler: Dyno '\$DYNO' is not running a monitored process type, PushProx Client won't be started."
-# else
-#   echo "AccurateScaler: Detected monitored '\$dyno_proctype' process type running in dyno."
-
-#   # Check if add-on is (correctly) installed or notify and exit without failing
-#   if [[ \$ACCURATE_SCALER_PROM_WRITER_URL == "" || \$ACCURATE_SCALER_APP_ID == "" ]]; then
-#     echo "AccurateScaler: Add-on config vars missing! OpenTelemetry Collector Contrib won't be started."
-#   else
-#     echo "AccurateScaler: Starting OpenTelemetry Collector Contrib ..."
-#     otelcol-contrib --config=file:\$HOME/accurate-scaler/otelcol-contrib/config.yaml &
-#   fi
-# fi
-# SH
-# fi
-
-# mkdir -p $BUILD_DIR/accurate-scaler/otelcol-contrib/prom_rw
-
-# if [[ ! -f $BUILD_DIR/accurate-scaler/otelcol-contrib/config.yaml ]]; then
-#   arrow "Creating AccurateScaler OpenTelemetry Collector Contrib configuration file ..."
-#   cat > $BUILD_DIR/accurate-scaler/otelcol-contrib/config.yaml <<-YAML
-# receivers:
-#   prometheus:
-#     config:
-#       scrape_configs:
-#         - job_name: "prometheus_exporter_gem"
-#           scrape_interval: 1s
-#           static_configs:
-#             - targets: ["localhost:9394"]
-# processors:
-#   batch:
-#     timeout: 5s
-# exporters:
-#   prometheusremotewrite:
-#     endpoint: "\$ACCURATE_SCALER_PROM_WRITER_URL"
-#     tls:
-#       insecure: true
-#     external_labels:
-#       accurate_scaler_app_id: "\$ACCURATE_SCALER_APP_ID"
-#       dyno: "\${DYNO}"
-#     resource_to_telemetry_conversion:
-#       enabled: true
-# service:
-#   pipelines:
-#     metrics:
-#       receivers: [prometheus]
-#       processors: [batch]
-#       exporters: [prometheusremotewrite]
-# YAML
-# fi
+# Give environment to later buildpacks
+export | grep -E -e ' (PATH|LD_LIBRARY_PATH|LIBRARY_PATH|INCLUDE_PATH|CPATH|CPPPATH|PKG_CONFIG_PATH|VM_VERSION|VM_RETENTION_PERIOD|VM_STORAGE_DATA_PATH)='  > "$LP_DIR/export"
