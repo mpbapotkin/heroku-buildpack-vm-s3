@@ -111,7 +111,7 @@ if [[ ! -f $VM_CACHE_DIR/victoria-metrics-prod ]]; then
 fi
 
 topic "Installing Victoria Metrics"
-cp $CACHE_DIR/victoria-metrics-prod $VM_BINARY_DIR
+cp $VM_CACHE_DIR/victoria-metrics-prod $VM_BINARY_DIR
 chmod a+x $VM_BINARY_DIR/victoria-metrics-prod
 mkdir -p $VM_STORAGE_DATA_PATH
 
