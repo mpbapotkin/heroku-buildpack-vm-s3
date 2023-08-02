@@ -106,8 +106,8 @@ if [[ ! -f $VM_CACHE_DIR/victoria-metrics-prod ]]; then
   topic "Fetching Victoria Metrics (Linux AMD64) v$VM_VERSION..."
   wget --quiet -O victoria-metrics.tar.gz https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v$VM_VERSION/victoria-metrics-linux-amd64-v$VM_VERSION.tar.gz
   tar -xzf victoria-metrics.tar.gz
-  mv victoria-metrics-linux-amd64-v${VM_VERSION}/victoria-metrics-prod $VM_CACHE_DIR
-  rm -rf victoria-metrics.tar.gz victoria-metrics-linux-amd64-v${VM_VERSION} || true
+  mv victoria-metrics-prod $VM_CACHE_DIR
+  rm -f victoria-metrics.tar.gz || true
 fi
 
 topic "Installing Victoria Metrics"
