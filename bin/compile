@@ -12,6 +12,7 @@ set -eo pipefail
 BUILD_DIR=$1
 CACHE_DIR=$2
 ENV_DIR=$3
+LP_DIR=`cd $(dirname $0); cd ..; pwd`
 
 function error() {
   echo " !     $*" >&2
